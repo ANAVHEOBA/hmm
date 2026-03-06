@@ -994,3 +994,24 @@ LOG_ERROR("Failed to load module: browser");
      6. Add logging (add tracing or log crate)
      7. Implement module timeouts (use std::thread::park_timeout or channels)
      8. Add retry logic to Transport
+
+
+
+     │ Feature               │ Documentation │ Implementation                                                      │
+    ├───────────────────────┼───────────────┼─────────────────────────────────────────────────────────────────────┤
+    │ Anti-VM Detection     │ Doc 06        │ ❌ Not implemented                                                  │
+    │ Anti-Debugging        │ Doc 06        │ ❌ Not implemented                                                  │
+    │ Anti-Sandbox          │ Doc 06        │ ❌ Not implemented                                                  │
+    │ Code Obfuscation      │ Doc 06        │ ❌ Not implemented                                                  │
+    │ Process Injection     │ Doc 06        │ ❌ Not implemented                                                  │
+    │ Fileless Execution    │ Doc 06        │ ❌ Not implemented                                                  │
+    │ Screenshot Module     │ Doc 01, 03    │ ❌ Not implemented                                                  │
+    │ Keylogger Module      │ Doc 01, 03    │ ❌ Not implemented                                                  │
+    │ Webcam Capture        │ Doc 01, 03    │ ❌ Not implemented                                                  │
+    │ Audio Recording       │ Doc 01, 03    │ ❌ Not implemented                                                  │
+    │ Telegram Exfiltration │ Doc 05        │ ❌ Not implemented                                                  │
+    │ Discord Exfiltration  │ Doc 05        │ ❌ Not implemented                                                  │
+    │ DNS Tunneling         │ Doc 05        │ ❌ Not implemented                                                  │
+    │ Password Decryption   │ Doc 04, 05    │ ⚠️ Partial (copies DB but doesn't decrypt Chrome/Firefox passwords) │
+    │ Master Key Extraction │ Doc 04        │ ❌ Not implemented (DPAPI, keyring)                                 │
+    └───────────────────────┴───────────────┴─────────────────────────────────────────────────────────────────────┘

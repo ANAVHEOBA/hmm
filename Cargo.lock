@@ -313,6 +313,7 @@ dependencies = [
  "env_logger",
  "flate2",
  "hostname",
+ "libc",
  "log",
  "num_cpus",
  "rand",
@@ -321,6 +322,7 @@ dependencies = [
  "serde",
  "serde_json",
  "webpki-roots 0.26.11",
+ "winapi",
 ]
 
 [[package]]
