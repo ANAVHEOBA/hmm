@@ -1,0 +1,40 @@
+[package]
+name = "hmm_core_agent"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+aes-gcm = "0.10"
+flate2 = "1.0"
+hostname = "0.3"
+num_cpus = "1.16"
+rand = "0.8"
+rustls = "0.23"
+rustls-pki-types = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+webpki-roots = "0.26"
+
+[[test]]
+name = "core_integration"
+path = "test/integration_test/core/core.rs"
+
+[[test]]
+name = "scheduler_integration"
+path = "test/integration_test/scheduler/scheduler.rs"
+
+[[test]]
+name = "processing_integration"
+path = "test/integration_test/processing/processing.rs"
+
+[[test]]
+name = "storage_integration"
+path = "test/integration_test/storage/storage.rs"
+
+[[test]]
+name = "transport_integration"
+path = "test/integration_test/transport/transport.rs"
+
+[[test]]
+name = "extractor_integration"
+path = "test/integration_test/extractor/extractor.rs"

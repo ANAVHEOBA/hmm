@@ -1,0 +1,30 @@
+# Build artifacts
+/target/
+**/target/
+
+# Cargo lock for libraries (keep for binaries)
+# Cargo.lock
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Rust analyzer
+.rust-analyzer/
+
+# Test artifacts
+*.profraw
+*.profdata
+coverage/
+tarpaulin-report.html
+
+# Documentation build
+/docs/book/
+
+# Temporary files
+*.tmp
+*.bak
