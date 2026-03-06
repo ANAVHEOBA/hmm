@@ -3,9 +3,18 @@ pub mod anti_sandbox;
 pub mod anti_vm;
 pub mod check;
 pub mod errors;
+pub mod inject;
+pub mod obfuscate;
 
 pub use anti_debug::AntiDebug;
 pub use anti_sandbox::AntiSandbox;
 pub use anti_vm::{AntiVM, VMType};
 pub use check::{EvasionCheckResult, EvasionConfig, EvasionTask};
 pub use errors::EvasionError;
+pub use inject::{
+    ProcessGhosting, ProcessInjector, InjectionResult, ThreadHijacker,
+};
+pub use obfuscate::{
+    ControlFlowObfuscator, DeadCodeInserter, InstructionReorderer, ObfuscationPipeline,
+    StringObfuscator,
+};

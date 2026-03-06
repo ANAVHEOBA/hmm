@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 aes-gcm = "0.10"
+base64 = "0.21"
 env_logger = "0.11"
 flate2 = "1.0"
 hostname = "0.3"
@@ -21,10 +22,12 @@ webpki-roots = "0.26"
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = [
     "debugapi",
+    "dpapi",
     "processthreadsapi",
     "winnt",
     "libloaderapi",
     "heapapi",
+    "winbase",
 ]}
 
 [[test]]
