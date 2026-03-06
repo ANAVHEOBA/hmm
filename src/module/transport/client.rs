@@ -1,7 +1,9 @@
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::Arc;
+use std::thread;
 
+use log::{debug, info, warn};
 use rustls::ClientConfig;
 use rustls::pki_types::ServerName;
 
@@ -47,6 +49,45 @@ impl TransportClient {
             return Ok(UploadResponse::skipped());
         }
 
+        let attempts = self.config.max_retries.saturating_add(1);
+        let mut last_error: Option<TransportError> = None;
+
+        for attempt in 1..=attempts {
+            debug!(
+                "upload attempt {}/{} to {:?}",
+                attempt,
+                attempts,
+                self.config.endpoint
+            );
+            match self.upload_once(request) {
+                Ok(response) => {
+                    if attempt > 1 {
+                        info!("upload succeeded on retry attempt {}", attempt);
+                    }
+                    return Ok(response);
+                }
+                Err(err) => {
+                    let should_retry = is_retryable(&err) && attempt < attempts;
+                    warn!(
+                        "upload attempt {} failed (retryable={}): {}",
+                        attempt, should_retry, err
+                    );
+                    last_error = Some(err);
+                    if should_retry {
+                        thread::sleep(self.config.retry_backoff);
+                        continue;
+                    }
+                    break;
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| {
+            TransportError::Protocol("upload failed without explicit error".to_string())
+        }))
+    }
+
+    fn upload_once(&self, request: &UploadRequest) -> Result<UploadResponse, TransportError> {
         let endpoint = self
             .config
             .endpoint
@@ -113,6 +154,13 @@ impl TransportClient {
             body,
         })
     }
+}
+
+fn is_retryable(err: &TransportError) -> bool {
+    matches!(
+        err,
+        TransportError::Io(_) | TransportError::Protocol(_) | TransportError::UploadFailed(_)
+    )
 }
 
 /// Enum to handle both HTTP and HTTPS streams

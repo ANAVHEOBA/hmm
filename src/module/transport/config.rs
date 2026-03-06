@@ -8,6 +8,8 @@ pub struct TransportConfig {
     pub endpoint: Option<String>,
     pub api_key: Option<String>,
     pub timeout: Duration,
+    pub max_retries: usize,
+    pub retry_backoff: Duration,
 }
 
 impl Default for TransportConfig {
@@ -17,6 +19,8 @@ impl Default for TransportConfig {
             endpoint: None,
             api_key: None,
             timeout: Duration::from_secs(5),
+            max_retries: 0,
+            retry_backoff: Duration::from_millis(200),
         }
     }
 }
@@ -30,6 +34,11 @@ impl TransportConfig {
         if self.timeout.is_zero() {
             return Err(TransportError::InvalidConfig(
                 "timeout must be greater than zero".to_string(),
+            ));
+        }
+        if self.retry_backoff.is_zero() {
+            return Err(TransportError::InvalidConfig(
+                "retry_backoff must be greater than zero".to_string(),
             ));
         }
 
