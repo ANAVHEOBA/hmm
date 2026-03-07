@@ -11,7 +11,6 @@ use super::types::{DataRecord, NormalizedRecord};
 pub struct ProcessingConfig {
     pub compression: CompressionMode,
     pub encryption_key: Option<Vec<u8>>,
-    pub nonce: u64,
 }
 
 impl Default for ProcessingConfig {
@@ -19,7 +18,6 @@ impl Default for ProcessingConfig {
         Self {
             compression: CompressionMode::Gzip,
             encryption_key: None,
-            nonce: 0,
         }
     }
 }

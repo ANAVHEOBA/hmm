@@ -274,7 +274,7 @@ impl WebcamModule {
     fn capture_linux(
         camera_index: u32,
         resolution: (u32, u32),
-        format: ImageFormat,
+        _format: ImageFormat,
     ) -> Result<CapturedFrame, EvasionError> {
         use std::process::Command;
 

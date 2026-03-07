@@ -16,7 +16,6 @@ use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
-use crate::module::transport::config::TransportConfig;
 
 /// Telegram-specific errors
 #[derive(Debug, Clone)]

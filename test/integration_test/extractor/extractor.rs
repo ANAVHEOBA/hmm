@@ -4,15 +4,15 @@ use hmm_core_agent::module::extractor::{
 
 #[test]
 fn wallet_extractor_created_successfully() {
-    let extractor = WalletExtractor::new(false);
+    let _extractor = WalletExtractor::new(false);
     // Should be able to create without panic
     assert!(true);
 }
 
 #[test]
 fn wallet_extractor_includes_locked_option() {
-    let extractor_locked = WalletExtractor::new(true);
-    let extractor_unlocked = WalletExtractor::new(false);
+    let _extractor_locked = WalletExtractor::new(true);
+    let _extractor_unlocked = WalletExtractor::new(false);
     
     // Different configurations should be possible
     assert!(true);
@@ -20,7 +20,7 @@ fn wallet_extractor_includes_locked_option() {
 
 #[test]
 fn browser_extractor_created_successfully() {
-    let extractor = BrowserExtractor::new(true, true, false);
+    let _extractor = BrowserExtractor::new(true, true, false);
     assert!(true);
 }
 
@@ -37,7 +37,7 @@ fn browser_extractor_config_options() {
 
 #[test]
 fn system_extractor_created_successfully() {
-    let extractor = SystemExtractor::new();
+    let _extractor = SystemExtractor::new();
     assert!(true);
 }
 

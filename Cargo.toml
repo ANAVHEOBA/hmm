@@ -3,6 +3,10 @@ name = "hmm_core_agent"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+x11 = []
+
 [dependencies]
 aes-gcm = "0.10"
 base64 = "0.21"

@@ -88,7 +88,6 @@ fn pipeline_with_gzip() {
     let config = ProcessingConfig {
         compression: CompressionMode::Gzip,
         encryption_key: Some(b"pipeline-key".to_vec()),
-        nonce: 7,
     };
     let pipeline = ProcessingPipeline::new(config).expect("config should be valid");
     let bundle = pipeline.process(&[record]).expect("processing should succeed");
@@ -108,7 +107,6 @@ fn pipeline_with_gzip_best() {
     let config = ProcessingConfig {
         compression: CompressionMode::GzipBest,
         encryption_key: None,
-        nonce: 0,
     };
     let pipeline = ProcessingPipeline::new(config).expect("config should be valid");
     let bundle = pipeline.process(&[record]).expect("processing should succeed");
@@ -124,7 +122,6 @@ fn pipeline_with_no_compression() {
     let config = ProcessingConfig {
         compression: CompressionMode::None,
         encryption_key: None,
-        nonce: 0,
     };
     let pipeline = ProcessingPipeline::new(config).expect("config should be valid");
     let bundle = pipeline.process(&[record]).expect("processing should succeed");

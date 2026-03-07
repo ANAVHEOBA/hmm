@@ -666,11 +666,13 @@ impl AntiVM {
     }
 
     #[cfg(not(target_os = "windows"))]
+    #[allow(dead_code)]
     fn registry_key_exists(_path: &str) -> bool {
         false
     }
 
     #[cfg(not(target_os = "windows"))]
+    #[allow(dead_code)]
     fn read_registry_string(_path: &str, _value: &str) -> Option<String> {
         None
     }

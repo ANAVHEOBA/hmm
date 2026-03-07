@@ -9,8 +9,8 @@ use hmm_core_agent::module::core::{CoreConfig, CoreError, FnTask, Orchestrator, 
 fn core_runs_registered_tasks() {
     let mut orchestrator = Orchestrator::new(CoreConfig::default()).expect("config should be valid");
 
-    orchestrator.register_task(FnTask::new("task_1", |_cfg| Ok(())));
-    orchestrator.register_task(FnTask::new("task_2", |_cfg| Ok(())));
+    orchestrator.register_task(FnTask::new_simple("task_1", |_cfg| Ok(())));
+    orchestrator.register_task(FnTask::new_simple("task_2", |_cfg| Ok(())));
 
     let stats = orchestrator.run().expect("run should succeed");
 
@@ -23,7 +23,7 @@ fn core_runs_registered_tasks() {
 #[test]
 fn core_propagates_task_failure() {
     let mut orchestrator = Orchestrator::new(CoreConfig::default()).expect("config should be valid");
-    orchestrator.register_task(FnTask::new("failing_task", |_cfg| {
+    orchestrator.register_task(FnTask::new_simple("failing_task", |_cfg| {
         Err(CoreError::TaskFailed {
             task: "failing_task".to_string(),
             reason: "forced failure".to_string(),
@@ -63,7 +63,7 @@ fn core_runs_tasks_in_parallel_using_scheduler() {
 
     for idx in 0..4 {
         let ctr = Arc::clone(&counter);
-        orchestrator.register_task(FnTask::new(format!("parallel_task_{idx}"), move |_cfg| {
+        orchestrator.register_task(FnTask::new_simple(format!("parallel_task_{idx}"), move |_cfg| {
             thread::sleep(Duration::from_millis(120));
             ctr.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -94,7 +94,7 @@ fn core_fails_task_that_exceeds_module_timeout() {
         dry_run: false,
     };
     let mut orchestrator = Orchestrator::new(config).expect("config should be valid");
-    orchestrator.register_task(FnTask::new("slow_task", |_cfg| {
+    orchestrator.register_task(FnTask::new_simple("slow_task", |_cfg| {
         thread::sleep(Duration::from_millis(200));
         Ok(())
     }));

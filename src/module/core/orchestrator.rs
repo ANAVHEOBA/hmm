@@ -6,6 +6,7 @@ use std::time::SystemTime;
 use crate::module::scheduler::{Scheduler, SchedulerError, SchedulerTask};
 use log::{debug, error, info, warn};
 
+use super::cancellation::{CancelGuard, CancellationToken};
 use super::config::CoreConfig;
 use super::errors::CoreError;
 use super::state::{CoreStats, OrchestratorState};
@@ -182,8 +183,16 @@ impl SchedulerTask for ScheduledCoreTask {
         let name = self.name.clone();
         let timeout = Duration::from_millis(self.config.module_timeout_ms);
 
+        // Create cancellation token for this task
+        let cancel_token = CancellationToken::new();
+        let cancel_token_for_timeout = cancel_token.clone();
+
+        // Spawn task with cancellation support
         std::thread::spawn(move || {
-            let _ = tx.send(task.run(&config));
+            let _guard = CancelGuard::new(cancel_token);
+            let result = task.run_with_cancel(&config, &_guard.token);
+            let _ = tx.send(result);
+            // Guard drops here, signalling cancellation if still running
         });
 
         match rx.recv_timeout(timeout) {
@@ -197,6 +206,10 @@ impl SchedulerTask for ScheduledCoreTask {
                     CoreError::TaskFailed { task, reason } => {
                         SchedulerError::TaskFailed { task, reason }
                     }
+                    CoreError::Cancelled => SchedulerError::TaskFailed {
+                        task: self.name.clone(),
+                        reason: "task was cancelled".to_string(),
+                    },
                     other => SchedulerError::TaskFailed {
                         task: self.name.clone(),
                         reason: other.to_string(),
@@ -204,10 +217,34 @@ impl SchedulerTask for ScheduledCoreTask {
                 })
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
+                // Request cancellation and wait briefly for cleanup
                 warn!(
-                    "task timed out: {} after {}ms",
+                    "task timed out: {} after {}ms, requesting cancellation",
                     name, self.config.module_timeout_ms
                 );
+                cancel_token_for_timeout.cancel();
+
+                // Give task a brief moment to clean up (10% of timeout, max 1 second)
+                let cleanup_timeout = std::cmp::min(
+                    Duration::from_millis(1000),
+                    Duration::from_millis(self.config.module_timeout_ms / 10),
+                );
+
+                if let Ok(result) = rx.recv_timeout(cleanup_timeout) {
+                    match result {
+                        Ok(()) => {
+                            debug!("task completed after cancellation request: {}", self.name);
+                            return Ok(());
+                        }
+                        Err(CoreError::Cancelled) => {
+                            debug!("task acknowledged cancellation: {}", self.name);
+                        }
+                        Err(e) => {
+                            warn!("task failed during cancellation: {} ({})", self.name, e);
+                        }
+                    }
+                }
+
                 Err(SchedulerError::TaskFailed {
                     task: name,
                     reason: format!("timed out after {}ms", self.config.module_timeout_ms),

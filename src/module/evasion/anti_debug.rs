@@ -193,6 +193,11 @@ impl AntiDebug {
             return Self::signal_based_check();
         }
 
+        #[cfg(not(any(
+            target_os = "windows",
+            target_os = "linux",
+            target_os = "macos"
+        )))]
         false
     }
 
@@ -305,6 +310,7 @@ impl AntiDebug {
     }
 
     #[cfg(not(target_os = "macos"))]
+    #[allow(dead_code)]
     fn check_ptrace_macos() -> bool {
         false
     }
@@ -448,6 +454,7 @@ unsafe fn hide_from_debugger_win() {
 
 // Linux-specific ptrace binding
 #[cfg(target_os = "linux")]
+#[allow(dead_code)]
 extern "C" {
     fn ptrace(request: libc::c_uint, pid: libc::pid_t, addr: *mut libc::c_void, data: *mut libc::c_void) -> libc::c_long;
 }

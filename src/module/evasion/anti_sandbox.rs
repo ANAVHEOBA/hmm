@@ -682,11 +682,13 @@ impl AntiSandbox {
     }
 
     #[cfg(not(target_os = "windows"))]
+    #[allow(dead_code)]
     fn registry_key_exists(_path: &str) -> bool {
         false
     }
 
     #[cfg(not(target_os = "windows"))]
+    #[allow(dead_code)]
     fn read_registry_subkeys(_path: &str) -> Result<Vec<String>, EvasionError> {
         Ok(Vec::new())
     }

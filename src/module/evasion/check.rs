@@ -9,7 +9,7 @@ use super::anti_debug::AntiDebug;
 use super::anti_sandbox::AntiSandbox;
 use super::anti_vm::{AntiVM, VMType};
 use super::errors::EvasionError;
-use crate::module::core::{CoreConfig, CoreError, CoreTask};
+use crate::module::core::{CancellationToken, CoreConfig, CoreError};
 
 /// Configuration for evasion checks
 #[derive(Debug, Clone)]
@@ -71,6 +71,11 @@ impl EvasionTask {
 
     /// Perform all configured evasion checks
     pub fn check(&self) -> Result<EvasionCheckResult, EvasionError> {
+        self.check_with_cancel(&CancellationToken::new())
+    }
+
+    /// Perform all configured evasion checks with cancellation support
+    pub fn check_with_cancel(&self, cancel_token: &CancellationToken) -> Result<EvasionCheckResult, EvasionError> {
         let mut details = Vec::new();
         let mut vm_detected = false;
         let mut vm_type = VMType::None;
@@ -79,6 +84,7 @@ impl EvasionTask {
 
         // VM Check
         if self.config.check_vm {
+            if cancel_token.is_cancelled() { return Err(EvasionError::Internal("cancelled".to_string())); }
             if AntiVM::is_virtual_machine() {
                 vm_detected = true;
                 vm_type = AntiVM::get_vm_type();
@@ -94,6 +100,7 @@ impl EvasionTask {
 
         // Debugger Check
         if self.config.check_debugger {
+            if cancel_token.is_cancelled() { return Err(EvasionError::Internal("cancelled".to_string())); }
             if AntiDebug::is_debugger_present() {
                 debugger_detected = true;
                 let msg = "Debugger detected".to_string();
@@ -108,6 +115,7 @@ impl EvasionTask {
 
         // Sandbox Check
         if self.config.check_sandbox {
+            if cancel_token.is_cancelled() { return Err(EvasionError::Internal("cancelled".to_string())); }
             if AntiSandbox::is_sandbox() {
                 sandbox_detected = true;
                 let msg = "Sandbox environment detected".to_string();
@@ -134,13 +142,17 @@ impl EvasionTask {
     }
 }
 
-impl CoreTask for EvasionTask {
+impl crate::module::core::CoreTask for EvasionTask {
     fn name(&self) -> &str {
         "evasion_check"
     }
 
     fn run(&self, _config: &CoreConfig) -> Result<(), CoreError> {
-        match self.check() {
+        self.run_with_cancel(_config, &CancellationToken::new())
+    }
+
+    fn run_with_cancel(&self, _config: &CoreConfig, cancel_token: &CancellationToken) -> Result<(), CoreError> {
+        match self.check_with_cancel(cancel_token) {
             Ok(result) => {
                 if result.is_safe() {
                     info!("Evasion checks passed: environment appears safe");
@@ -171,6 +183,7 @@ impl CoreTask for EvasionTask {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::module::core::CoreTask;
 
     #[test]
     fn test_evasion_task_creation() {

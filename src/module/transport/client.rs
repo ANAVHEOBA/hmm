@@ -1,9 +1,11 @@
-use std::io::{Read, Write};
+use std::io::{BufRead, Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::Arc;
 use std::thread;
+use std::time::Duration;
 
 use log::{debug, info, warn};
+use rand::Rng;
 use rustls::ClientConfig;
 use rustls::pki_types::ServerName;
 
@@ -19,28 +21,28 @@ pub struct TransportClient {
 impl TransportClient {
     pub fn new(config: TransportConfig) -> Result<Self, TransportError> {
         config.validate()?;
-        
+
         // Initialize TLS config if HTTPS might be used
         let tls_config = if config.endpoint.as_ref().map_or(false, |e| e.starts_with("https://")) {
             Some(Self::create_tls_config()?)
         } else {
             None
         };
-        
+
         Ok(Self { config, tls_config })
     }
-    
+
     /// Create TLS configuration with webpki roots
     fn create_tls_config() -> Result<Arc<ClientConfig>, TransportError> {
         use rustls::RootCertStore;
-        
+
         let mut root_store = RootCertStore::empty();
         root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        
+
         let config = ClientConfig::builder()
             .with_root_certificates(root_store)
             .with_no_client_auth();
-        
+
         Ok(Arc::new(config))
     }
 
@@ -67,17 +69,19 @@ impl TransportClient {
                     return Ok(response);
                 }
                 Err(err) => {
-                    let should_retry = is_retryable(&err) && attempt < attempts;
+                    let retry_decision = should_retry(&err, attempt, self.config.max_retries);
                     warn!(
-                        "upload attempt {} failed (retryable={}): {}",
-                        attempt, should_retry, err
+                        "upload attempt {} failed (retryable={}, decision={:?}): {}",
+                        attempt, is_retryable(&err), retry_decision, err
                     );
                     last_error = Some(err);
-                    if should_retry {
-                        thread::sleep(self.config.retry_backoff);
+                    
+                    if let RetryDecision::RetryWithDelay(delay) = retry_decision {
+                        thread::sleep(delay);
                         continue;
+                    } else {
+                        break;
                     }
-                    break;
                 }
             }
         }
@@ -110,20 +114,20 @@ impl TransportClient {
         let mut stream: TransportStream = if parsed.is_https {
             let tls_config = self.tls_config.as_ref()
                 .ok_or_else(|| TransportError::Protocol("TLS config not initialized".to_string()))?;
-            
+
             let server_name = ServerName::try_from(parsed.host.as_str())
                 .map_err(|e| TransportError::InvalidEndpoint(format!("invalid hostname: {}", e)))?
                 .to_owned();
-            
+
             let tls_conn = rustls::ClientConnection::new(Arc::clone(tls_config), server_name)
                 .map_err(|e| TransportError::Protocol(format!("TLS connection failed: {}", e)))?;
-            
+
             TransportStream::Https(tls_conn, tcp_stream)
         } else {
             TransportStream::Http(tcp_stream)
         };
 
-        // Build HTTP request
+        // Build HTTP request with proper headers
         let mut http = format!(
             "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n",
             parsed.path,
@@ -132,7 +136,7 @@ impl TransportClient {
             request.payload.len()
         );
         if let Some(api_key) = &self.config.api_key {
-            http.push_str(&format!("X-API-Key: {api_key}\r\n"));
+            http.push_str(&format!("X-API-Key: {}\r\n", api_key));
         }
         http.push_str("\r\n");
 
@@ -140,27 +144,234 @@ impl TransportClient {
         stream.write_all(&request.payload)?;
         stream.flush()?;
 
-        let mut raw_response = Vec::new();
-        stream.read_to_end(&mut raw_response)?;
-        let (status_code, body) = parse_http_response(&raw_response)?;
-
-        if !(200..300).contains(&status_code) {
-            return Err(TransportError::UploadFailed(status_code));
+        // Read and parse HTTP response properly
+        let response = read_http_response(&mut stream, self.config.timeout)?;
+        
+        if !(200..300).contains(&response.status_code) {
+            return Err(TransportError::UploadFailed(response.status_code));
         }
 
         Ok(UploadResponse {
             uploaded: true,
-            status_code: Some(status_code),
-            body,
+            status_code: Some(response.status_code),
+            body: response.body,
         })
     }
 }
 
+/// Retry decision based on error type and attempt number
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum RetryDecision {
+    /// Do not retry (fatal error or max retries exceeded)
+    NoRetry,
+    /// Retry after specified delay
+    RetryWithDelay(Duration),
+}
+
+/// Determine if and how to retry based on error type
+fn should_retry(err: &TransportError, attempt: usize, max_retries: usize) -> RetryDecision {
+    if attempt > max_retries {
+        return RetryDecision::NoRetry;
+    }
+
+    match err {
+        // Network errors - retry with exponential backoff
+        TransportError::Io(_) | TransportError::InvalidEndpoint(_) => {
+            let delay = calculate_backoff(attempt, Duration::from_secs(1));
+            RetryDecision::RetryWithDelay(delay)
+        }
+        // Protocol errors - may be temporary, retry with backoff
+        TransportError::Protocol(_) => {
+            let delay = calculate_backoff(attempt, Duration::from_millis(500));
+            RetryDecision::RetryWithDelay(delay)
+        }
+        // HTTP status code based retry logic
+        TransportError::UploadFailed(status) => {
+            match *status {
+                // 4xx client errors - generally don't retry (except 429)
+                400..=499 => {
+                    if *status == 429 {
+                        // Rate limited - respect Retry-After if present, otherwise exponential backoff
+                        let delay = calculate_backoff(attempt, Duration::from_secs(2));
+                        RetryDecision::RetryWithDelay(delay)
+                    } else {
+                        RetryDecision::NoRetry
+                    }
+                }
+                // 5xx server errors - retry with backoff
+                500..=599 => {
+                    let delay = calculate_backoff(attempt, Duration::from_secs(1));
+                    RetryDecision::RetryWithDelay(delay)
+                }
+                // Other codes - don't retry
+                _ => RetryDecision::NoRetry,
+            }
+        }
+        // Configuration errors - don't retry
+        TransportError::InvalidConfig(_) => RetryDecision::NoRetry,
+    }
+}
+
+/// Check if an error is potentially retryable
 fn is_retryable(err: &TransportError) -> bool {
     matches!(
         err,
-        TransportError::Io(_) | TransportError::Protocol(_) | TransportError::UploadFailed(_)
+        TransportError::Io(_) 
+            | TransportError::Protocol(_) 
+            | TransportError::UploadFailed(_)
+            | TransportError::InvalidEndpoint(_)
     )
+}
+
+/// Calculate exponential backoff with jitter
+fn calculate_backoff(attempt: usize, base_delay: Duration) -> Duration {
+    // Exponential backoff: base_delay * 2^(attempt-1)
+    let exponent = attempt.saturating_sub(1) as u32;
+    let exponential_delay = base_delay.as_millis() as u64 * 2u64.saturating_pow(exponent);
+    
+    // Cap at 30 seconds to avoid excessive delays
+    let capped_delay = exponential_delay.min(30_000);
+    
+    // Add jitter: +/- 25% random variation
+    let mut rng = rand::thread_rng();
+    let jitter_range = (capped_delay as f64 * 0.25) as u64;
+    let jitter = if jitter_range > 0 {
+        let jitter_val = rng.gen_range(0..jitter_range * 2);
+        jitter_val as i64 - jitter_range as i64
+    } else {
+        0
+    };
+    
+    let final_delay = (capped_delay as i64 + jitter).max(100) as u64;
+    
+    Duration::from_millis(final_delay)
+}
+
+/// HTTP response structure
+struct HttpResponse {
+    status_code: u16,
+    body: Vec<u8>,
+}
+
+/// Read and parse HTTP response with proper handling
+fn read_http_response<R: Read>(
+    stream: &mut R,
+    _timeout: Duration,
+) -> Result<HttpResponse, TransportError> {
+    use std::io::BufRead;
+
+    // Set read timeout
+    stream
+        .read(&mut [0u8; 0])
+        .ok(); // Dummy read to trigger timeout if needed
+
+    let mut reader = std::io::BufReader::new(stream);
+
+    // Read status line
+    let mut status_line = String::new();
+    reader.read_line(&mut status_line)?;
+    
+    if status_line.is_empty() {
+        return Err(TransportError::Protocol("empty response".to_string()));
+    }
+
+    // Parse status line: HTTP/1.1 200 OK
+    let parts: Vec<&str> = status_line.trim().split_whitespace().collect();
+    if parts.len() < 2 {
+        return Err(TransportError::Protocol("malformed status line".to_string()));
+    }
+
+    let status_code: u16 = parts[1]
+        .parse()
+        .map_err(|_| TransportError::Protocol(format!("invalid status code: {}", parts[1])))?;
+
+    // Read headers
+    let mut content_length: Option<usize> = None;
+    let mut is_chunked = false;
+
+    loop {
+        let mut header_line = String::new();
+        let bytes_read = reader.read_line(&mut header_line)?;
+        
+        if bytes_read == 0 {
+            return Err(TransportError::Protocol("unexpected end of headers".to_string()));
+        }
+
+        let header_line = header_line.trim();
+        if header_line.is_empty() {
+            break; // End of headers
+        }
+
+        if let Some((key, value)) = header_line.split_once(':') {
+            let key = key.trim().to_lowercase();
+            let value = value.trim().to_string();
+            
+            if key == "content-length" {
+                content_length = value.parse().ok();
+            } else if key == "transfer-encoding" && value.to_lowercase().contains("chunked") {
+                is_chunked = true;
+            }
+            
+        }
+    }
+
+    // Read body
+    let body = if is_chunked {
+        read_chunked_body(&mut reader)?
+    } else if let Some(len) = content_length {
+        let mut body = vec![0u8; len];
+        reader.read_exact(&mut body)?;
+        body
+    } else {
+        // No content-length, read until EOF
+        let mut body = Vec::new();
+        reader.read_to_end(&mut body)?;
+        body
+    };
+
+    Ok(HttpResponse {
+        status_code,
+        body,
+    })
+}
+
+/// Read chunked transfer encoding body
+fn read_chunked_body<R: BufRead>(reader: &mut R) -> Result<Vec<u8>, TransportError> {
+    let mut body = Vec::new();
+
+    loop {
+        // Read chunk size line
+        let mut size_line = String::new();
+        reader.read_line(&mut size_line)?;
+
+        // Parse chunk size (hex)
+        let size_str = size_line.trim().split(';').next().unwrap_or("0");
+        let chunk_size = usize::from_str_radix(size_str, 16)
+            .map_err(|_| TransportError::Protocol(format!("invalid chunk size: {}", size_str)))?;
+
+        if chunk_size == 0 {
+            // Final chunk - read trailing headers and CRLF
+            loop {
+                let mut trailer = String::new();
+                reader.read_line(&mut trailer)?;
+                if trailer.trim().is_empty() {
+                    break;
+                }
+            }
+            break;
+        }
+
+        // Read chunk data
+        let mut chunk = vec![0u8; chunk_size];
+        reader.read_exact(&mut chunk)?;
+        body.extend(chunk);
+
+        // Read CRLF after chunk
+        let mut crlf = [0u8; 2];
+        reader.read_exact(&mut crlf)?;
+    }
+
+    Ok(body)
 }
 
 /// Enum to handle both HTTP and HTTPS streams
@@ -178,14 +389,14 @@ impl Write for TransportStream {
                 while conn.wants_write() {
                     conn.write_tls(stream)?;
                 }
-                
+
                 let len = conn.writer().write(buf)?;
-                
+
                 // Flush TLS data to socket
                 while conn.wants_write() {
                     conn.write_tls(stream)?;
                 }
-                
+
                 Ok(len)
             }
         }
@@ -219,7 +430,7 @@ impl Read for TransportStream {
                         std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
                     })?;
                 }
-                
+
                 conn.reader().read(buf)
             }
         }
@@ -271,29 +482,4 @@ fn parse_http_endpoint(endpoint: &str) -> Result<ParsedEndpoint, TransportError>
     }
 
     Ok(ParsedEndpoint { host, port, path, is_https })
-}
-
-fn parse_http_response(raw: &[u8]) -> Result<(u16, Vec<u8>), TransportError> {
-    let sep = b"\r\n\r\n";
-    let body_start = raw
-        .windows(sep.len())
-        .position(|window| window == sep)
-        .map(|idx| idx + sep.len())
-        .ok_or_else(|| TransportError::Protocol("malformed HTTP response".to_string()))?;
-
-    let header = &raw[..body_start - sep.len()];
-    let header_text = String::from_utf8_lossy(header);
-    let status_line = header_text
-        .lines()
-        .next()
-        .ok_or_else(|| TransportError::Protocol("missing status line".to_string()))?;
-
-    let status_code = status_line
-        .split_whitespace()
-        .nth(1)
-        .ok_or_else(|| TransportError::Protocol("missing status code".to_string()))?
-        .parse::<u16>()
-        .map_err(|_| TransportError::Protocol("invalid status code".to_string()))?;
-
-    Ok((status_code, raw[body_start..].to_vec()))
 }

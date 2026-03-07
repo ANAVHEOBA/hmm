@@ -6,6 +6,7 @@ pub enum CoreError {
     InvalidConfig(String),
     AlreadyRunning,
     TaskFailed { task: String, reason: String },
+    Cancelled,
 }
 
 impl Display for CoreError {
@@ -16,6 +17,7 @@ impl Display for CoreError {
             Self::TaskFailed { task, reason } => {
                 write!(f, "task `{task}` failed: {reason}")
             }
+            Self::Cancelled => write!(f, "operation cancelled"),
         }
     }
 }

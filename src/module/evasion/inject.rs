@@ -9,8 +9,6 @@
 //! WARNING: These techniques are highly detectable by modern AV/EDR.
 //! Use only for educational/defensive research purposes.
 
-use std::io::{Read, Write};
-use std::net::TcpStream;
 use std::time::Duration;
 
 use super::errors::EvasionError;
@@ -72,8 +70,8 @@ impl ProcessInjector {
     /// # Safety
     /// This is a dangerous operation that can destabilize the target process.
     pub fn process_hollowing(
-        target_exe: &str,
-        payload: &[u8],
+        _target_exe: &str,
+        _payload: &[u8],
     ) -> Result<InjectionResult, EvasionError> {
         #[cfg(target_os = "windows")]
         {
@@ -100,8 +98,8 @@ impl ProcessInjector {
     /// # Safety
     /// This is a dangerous operation that can destabilize the target process.
     pub fn dll_injection(
-        target_pid: u32,
-        dll_path: &str,
+        _target_pid: u32,
+        _dll_path: &str,
     ) -> Result<InjectionResult, EvasionError> {
         #[cfg(target_os = "windows")]
         {
@@ -128,8 +126,8 @@ impl ProcessInjector {
     /// # Safety
     /// This is a dangerous operation.
     pub fn apc_injection(
-        target_pid: u32,
-        payload: &[u8],
+        _target_pid: u32,
+        _payload: &[u8],
     ) -> Result<InjectionResult, EvasionError> {
         #[cfg(target_os = "windows")]
         {
@@ -359,10 +357,10 @@ impl ProcessInjector {
     #[cfg(target_os = "linux")]
     fn ptrace_injection_linux(
         target_pid: u32,
-        payload: &[u8],
+        _payload: &[u8],
     ) -> Result<InjectionResult, EvasionError> {
-        use libc::{c_long, ptrace, PTRACE_ATTACH, PTRACE_DETACH, PTRACE_PEEKTEXT};
-        use std::ffi::CString;
+        use libc::{ptrace, PTRACE_ATTACH, PTRACE_DETACH};
+        
 
         unsafe {
             // Attach to target process
@@ -409,7 +407,7 @@ impl ProcessGhosting {
     ///
     /// # Safety
     /// This is a dangerous operation.
-    pub fn execute(payload: &[u8], target_name: &str) -> Result<InjectionResult, EvasionError> {
+    pub fn execute(_payload: &[u8], _target_name: &str) -> Result<InjectionResult, EvasionError> {
         #[cfg(target_os = "windows")]
         {
             Self::process_ghosting_windows(payload, target_name)
@@ -455,9 +453,9 @@ impl ThreadHijacker {
     /// # Safety
     /// This is a dangerous operation.
     pub fn hijack_thread(
-        target_pid: u32,
-        thread_id: u32,
-        payload: &[u8],
+        _target_pid: u32,
+        _thread_id: u32,
+        _payload: &[u8],
     ) -> Result<InjectionResult, EvasionError> {
         #[cfg(target_os = "windows")]
         {

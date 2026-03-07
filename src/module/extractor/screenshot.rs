@@ -384,6 +384,7 @@ impl ScreenshotModule {
     }
 
     #[cfg(target_os = "linux")]
+    #[cfg(feature = "x11")]
     fn capture_x11(format: ImageFormat) -> Result<Screenshot, EvasionError> {
         // X11 capture would go here with x11rb or x11 crate
         // For now, use command fallback
@@ -391,7 +392,7 @@ impl ScreenshotModule {
     }
 
     #[cfg(target_os = "linux")]
-    fn capture_with_command(format: ImageFormat) -> Result<Screenshot, EvasionError> {
+    fn capture_with_command(_format: ImageFormat) -> Result<Screenshot, EvasionError> {
         use std::process::Command;
 
         // Try common screenshot tools

