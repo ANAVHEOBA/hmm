@@ -116,10 +116,11 @@ fn system_extractor_extract_all() {
 fn wallet_extractor_extract_all_returns_results() {
     let extractor = WalletExtractor::new(false);
     let results = extractor.extract_all();
-    
+
     // Should return results for all wallet types (may fail if wallets not installed)
-    assert_eq!(results.len(), 5); // metamask, exodus, electrum, bitcoin_core, trust_wallet
-    
+    // 11 browser extension wallets + 8 desktop wallets = 19 total
+    assert_eq!(results.len(), 19);
+
     // Each result should have a target and either success or error
     for result in &results {
         assert!(!result.data.is_empty() || result.error.is_some());

