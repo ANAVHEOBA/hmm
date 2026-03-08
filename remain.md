@@ -167,6 +167,14 @@ Added comprehensive integration tests in `tests/integration.rs` that verify the 
 
 ### Remaining Issues
 
-  5. Config drift: retry_backoff is validated but not used in retry calculation
-      - Config defines retry_backoff (config.rs:12).
-      - Retry logic uses hardcoded base delays instead (client.rs:180, client.rs:185).
+**None** - All identified issues have been resolved.
+
+## Completed Enhancements Summary
+
+| Issue | Status | Resolution |
+|-------|--------|------------|
+| Data flow pipeline | ✅ FIXED | DataContext implemented for extract→process→store→transport |
+| Evasion runs first | ✅ FIXED | EvasionTask runs synchronously before other tasks |
+| Persistence not integrated | ✅ FIXED | Added with HMM_ENABLE_PERSISTENCE=1 env var |
+| No integration tests | ✅ FIXED | 8 end-to-end tests added (205 total tests) |
+| retry_backoff config drift | ✅ ALREADY FIXED | Config value is used in should_retry() at client.rs:76 |
