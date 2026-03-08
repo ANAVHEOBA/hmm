@@ -69,7 +69,12 @@ impl TransportClient {
                     return Ok(response);
                 }
                 Err(err) => {
-                    let retry_decision = should_retry(&err, attempt, self.config.max_retries);
+                    let retry_decision = should_retry(
+                        &err,
+                        attempt,
+                        self.config.max_retries,
+                        self.config.retry_backoff,
+                    );
                     warn!(
                         "upload attempt {} failed (retryable={}, decision={:?}): {}",
                         attempt, is_retryable(&err), retry_decision, err
@@ -169,7 +174,12 @@ enum RetryDecision {
 }
 
 /// Determine if and how to retry based on error type
-fn should_retry(err: &TransportError, attempt: usize, max_retries: usize) -> RetryDecision {
+fn should_retry(
+    err: &TransportError,
+    attempt: usize,
+    max_retries: usize,
+    retry_backoff: Duration,
+) -> RetryDecision {
     if attempt > max_retries {
         return RetryDecision::NoRetry;
     }
@@ -177,12 +187,12 @@ fn should_retry(err: &TransportError, attempt: usize, max_retries: usize) -> Ret
     match err {
         // Network errors - retry with exponential backoff
         TransportError::Io(_) | TransportError::InvalidEndpoint(_) => {
-            let delay = calculate_backoff(attempt, Duration::from_secs(1));
+            let delay = calculate_backoff(attempt, retry_backoff);
             RetryDecision::RetryWithDelay(delay)
         }
         // Protocol errors - may be temporary, retry with backoff
         TransportError::Protocol(_) => {
-            let delay = calculate_backoff(attempt, Duration::from_millis(500));
+            let delay = calculate_backoff(attempt, retry_backoff);
             RetryDecision::RetryWithDelay(delay)
         }
         // HTTP status code based retry logic
@@ -192,7 +202,7 @@ fn should_retry(err: &TransportError, attempt: usize, max_retries: usize) -> Ret
                 400..=499 => {
                     if *status == 429 {
                         // Rate limited - respect Retry-After if present, otherwise exponential backoff
-                        let delay = calculate_backoff(attempt, Duration::from_secs(2));
+                        let delay = calculate_backoff(attempt, retry_backoff.saturating_mul(2));
                         RetryDecision::RetryWithDelay(delay)
                     } else {
                         RetryDecision::NoRetry
@@ -200,7 +210,7 @@ fn should_retry(err: &TransportError, attempt: usize, max_retries: usize) -> Ret
                 }
                 // 5xx server errors - retry with backoff
                 500..=599 => {
-                    let delay = calculate_backoff(attempt, Duration::from_secs(1));
+                    let delay = calculate_backoff(attempt, retry_backoff);
                     RetryDecision::RetryWithDelay(delay)
                 }
                 // Other codes - don't retry
