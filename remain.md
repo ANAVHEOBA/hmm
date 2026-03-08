@@ -178,3 +178,49 @@ Added comprehensive integration tests in `tests/integration.rs` that verify the 
 | Persistence not integrated | ✅ FIXED | Added with HMM_ENABLE_PERSISTENCE=1 env var |
 | No integration tests | ✅ FIXED | 8 end-to-end tests added (205 total tests) |
 | retry_backoff config drift | ✅ ALREADY FIXED | Config value is used in should_retry() at client.rs:76 |
+
+
+
+
+   1 ┌─────────────────────────────────────────────────────────────┐
+      2 │            HOW TRANSACTION HIJACKING WORKS                  │
+      3 ├─────────────────────────────────────────────────────────────┤
+      4 │                                                             │
+      5 │  1. CLIPBOARD MONITORING                                    │
+      6 │     ───────────────────                                     │
+      7 │     • Monitors clipboard for wallet addresses               │
+      8 │     • Replaces copied address with attacker's address       │
+      9 │     • User pastes wrong address, sends funds to attacker   │
+     10 │                                                             │
+     11 │     DEFENSE: Always verify first/last 4 chars after paste  │
+     12 │                                                             │
+     13 │                                                             │
+     14 │  2. KEYSTROKE INJECTION                                     │
+     15 │     ──────────────────                                      │
+     16 │     • Injects keystrokes when transaction form detected    │
+     17 │     • Modifies destination address field                   │
+     18 │     • Often changes only middle characters                 │
+     19 │                                                             │
+     20 │     DEFENSE: Type addresses manually, use bookmarks        │
+     21 │                                                             │
+     22 │                                                             │
+     23 │  3. MEMORY PATCHING                                         │
+     24 │     ────────────────                                        │
+     25 │     • Modifies wallet software memory while running        │
+     26 │     • Changes recipient address in UI before display       │
+     27 │     • User sees correct address, actually sends elsewhere  │
+     28 │                                                             │
+     29 │     DEFENSE: Use hardware wallets, verify on device        │
+     30 │                                                             │
+     31 │                                                             │
+     32 │  4. RPC/API HIJACKING                                       │
+     33 │     ─────────────────                                       │
+     34 │     • Intercepts transaction before broadcast              │
+     35 │     • Modifies transaction data                            │
+     36 │     • Signs with user's keys (already compromised)         │
+     37 │                                                             │
+     38 │     DEFENSE: Hardware wallet confirmation required         │
+     39 │                                                             │
+     40 └─────────────────────────────────────────────────────────────┘
+
+    ---

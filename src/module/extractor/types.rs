@@ -42,6 +42,9 @@ pub enum ExtractionTarget {
 
     // Memory
     MemoryKeys,
+
+    // Keylogger
+    Keylogger,
 }
 
 impl ExtractionTarget {
@@ -83,6 +86,8 @@ impl ExtractionTarget {
             Self::Clipboard => "clipboard",
 
             Self::MemoryKeys => "memory_keys",
+
+            Self::Keylogger => "keylogger",
         }
     }
 
@@ -101,7 +106,7 @@ impl ExtractionTarget {
 
             Self::SystemInfo | Self::NetworkInfo | Self::HardwareInfo | Self::Clipboard => "system",
 
-            Self::MemoryKeys => "memory",
+            Self::MemoryKeys | Self::Keylogger => "capture",
         }
     }
 }
