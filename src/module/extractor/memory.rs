@@ -4,7 +4,7 @@
 //! - Enumerates running processes
 //! - Identifies wallet/browser processes (MetaMask, Chrome, Electron apps)
 //! - Reads process memory and scans for private key patterns
-//! - Validates and extracts potential keys
+//! - Validates and extracts potential keys with checksum verification
 //!
 //! Platform support:
 //! - Linux: /proc/[pid]/mem + ptrace
@@ -19,6 +19,7 @@ use std::path::PathBuf;
 use std::process;
 
 use log::{debug, info, warn};
+use sha2::{Sha256, Digest};
 
 use super::errors::ExtractionError;
 use super::types::{DataType, ExtractedData, ExtractionResult, ExtractionTarget};
@@ -352,7 +353,7 @@ impl MemoryExtractor {
         pid: u32,
         result: &mut MemoryExtractionResult,
     ) -> Result<(), ExtractionError> {
-        use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
+        use std::io::{Read, Seek, SeekFrom};
 
         // Read process memory maps
         let maps_path = format!("/proc/{}/maps", pid);
@@ -786,6 +787,146 @@ impl MemoryExtractor {
     }
 }
 
+// ============================================================================
+// Key Validation Functions
+// ============================================================================
+
+/// Base58 alphabet for Bitcoin encoding
+const BASE58_ALPHABET: &[u8] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+/// Decode a base58 string to bytes
+/// Returns None if invalid base58
+fn base58_decode(s: &str) -> Option<Vec<u8>> {
+    let mut bytes: Vec<u8> = vec![0; s.len() * 2]; // Over-allocate
+    
+    for c in s.as_bytes() {
+        // Find character in alphabet
+        let idx = BASE58_ALPHABET.iter().position(|&x| x == *c)?;
+        
+        // Multiply existing bytes by 58 and add new digit
+        let mut carry = idx as u32;
+        for byte in bytes.iter_mut().rev() {
+            carry += (*byte as u32) * 58;
+            *byte = (carry & 0xFF) as u8;
+            carry >>= 8;
+        }
+    }
+    
+    // Skip leading zeros (but preserve leading '1's from input)
+    let leading_ones = s.bytes().take_while(|&b| b == b'1').count();
+    let start = bytes.iter().position(|&b| b != 0).unwrap_or(bytes.len());
+    
+    // Combine leading ones with actual data
+    let mut result = vec![0u8; leading_ones];
+    result.extend_from_slice(&bytes[start..]);
+    
+    Some(result)
+}
+
+/// Verify Bitcoin WIF checksum
+/// WIF format: [version byte] + [32 byte private key] + [compression flag?] + [4 byte checksum]
+pub fn verify_bitcoin_wif_checksum(wif: &str) -> bool {
+    // Decode base58
+    let decoded = match base58_decode(wif) {
+        Some(d) => d,
+        None => return false,
+    };
+    
+    // WIF should be 37 bytes (uncompressed) or 38 bytes (compressed)
+    // 1 version + 32 key + 1 compression flag (optional) + 4 checksum
+    if decoded.len() != 34 && decoded.len() != 37 && decoded.len() != 38 {
+        return false;
+    }
+    
+    // Split into payload and checksum
+    let checksum_start = decoded.len() - 4;
+    let (payload, checksum) = decoded.split_at(checksum_start);
+    
+    // Double SHA256 of payload
+    let hash1 = Sha256::digest(payload);
+    let hash2 = Sha256::digest(&hash1);
+    
+    // Compare first 4 bytes of hash with checksum
+    &hash2[..4] == checksum
+}
+
+/// Verify Ethereum private key format
+/// Valid keys are 64 hex chars representing a number in range [1, n-1]
+/// where n is the secp256k1 curve order
+pub fn verify_ethereum_key_format(hex: &str) -> bool {
+    // Must be exactly 64 hex characters
+    if hex.len() != 64 {
+        return false;
+    }
+    
+    // Must be valid hex
+    if !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        return false;
+    }
+    
+    // secp256k1 curve order n:
+    // FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+    // Key must be in range [1, n-1]
+    let n_hex = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141";
+    
+    // Check if key is zero
+    if hex.chars().all(|c| c == '0') {
+        return false;
+    }
+    
+    // Check if key >= n (compare as big-endian hex)
+    if hex >= n_hex {
+        return false;
+    }
+    
+    true
+}
+
+/// Validate a found key with checksum/format verification
+#[derive(Debug, Clone)]
+pub struct KeyValidationResult {
+    pub is_valid: bool,
+    pub key_type: String,
+    pub confidence: Confidence,
+    pub validation_message: String,
+}
+
+/// Validate a Bitcoin WIF key
+pub fn validate_bitcoin_wif(wif: &str) -> KeyValidationResult {
+    let is_valid = verify_bitcoin_wif_checksum(wif);
+    
+    let (confidence, message) = if is_valid {
+        (Confidence::High, "Valid Bitcoin WIF with correct checksum".to_string())
+    } else {
+        (Confidence::Low, "Invalid Bitcoin WIF checksum".to_string())
+    };
+    
+    KeyValidationResult {
+        is_valid,
+        key_type: "bitcoin_wif".to_string(),
+        confidence,
+        validation_message: message,
+    }
+}
+
+/// Validate an Ethereum private key
+pub fn validate_ethereum_key(hex: &str) -> KeyValidationResult {
+    let is_valid = verify_ethereum_key_format(hex);
+    
+    let (confidence, message) = if is_valid {
+        (Confidence::High, "Valid Ethereum key format (secp256k1 range)".to_string())
+    } else {
+        (Confidence::Low, "Invalid Ethereum key format".to_string())
+    };
+    
+    KeyValidationResult {
+        is_valid,
+        key_type: "ethereum_key".to_string(),
+        confidence,
+        validation_message: message,
+    }
+}
+
 /// Process information structure
 #[derive(Debug, Clone)]
 pub struct ProcessInfo {
@@ -854,5 +995,72 @@ mod tests {
 
         // Should find at least some potential keys
         info!("Found {} keys in test buffer", keys.len());
+    }
+
+    #[test]
+    fn test_bitcoin_wif_checksum_valid() {
+        // Valid test WIF (testnet, uncompressed)
+        let valid_wif = "5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF";
+        assert!(verify_bitcoin_wif_checksum(valid_wif));
+        
+        let result = validate_bitcoin_wif(valid_wif);
+        assert!(result.is_valid);
+        assert_eq!(result.confidence, Confidence::High);
+    }
+
+    #[test]
+    fn test_bitcoin_wif_checksum_invalid() {
+        // Invalid WIF (modified last character)
+        let invalid_wif = "5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KG";
+        assert!(!verify_bitcoin_wif_checksum(invalid_wif));
+        
+        let result = validate_bitcoin_wif(invalid_wif);
+        assert!(!result.is_valid);
+        assert_eq!(result.confidence, Confidence::Low);
+    }
+
+    #[test]
+    fn test_ethereum_key_valid() {
+        // Valid Ethereum private key (within secp256k1 range)
+        let valid_key = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318";
+        assert!(verify_ethereum_key_format(valid_key));
+        
+        let result = validate_ethereum_key(valid_key);
+        assert!(result.is_valid);
+        assert_eq!(result.confidence, Confidence::High);
+    }
+
+    #[test]
+    fn test_ethereum_key_zero() {
+        // Zero is not a valid key
+        let zero_key = "0000000000000000000000000000000000000000000000000000000000000000";
+        assert!(!verify_ethereum_key_format(zero_key));
+        
+        let result = validate_ethereum_key(zero_key);
+        assert!(!result.is_valid);
+    }
+
+    #[test]
+    fn test_ethereum_key_out_of_range() {
+        // Key >= secp256k1 order n is invalid
+        let n_hex = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141";
+        assert!(!verify_ethereum_key_format(n_hex));
+        
+        // Key just above n
+        let above_n = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142";
+        assert!(!verify_ethereum_key_format(above_n));
+    }
+
+    #[test]
+    fn test_base58_decode() {
+        assert_eq!(base58_decode("1"), Some(vec![0]));
+        assert_eq!(base58_decode("2"), Some(vec![1]));
+        assert_eq!(base58_decode("11"), Some(vec![0, 0]));
+        
+        // Invalid character
+        assert_eq!(base58_decode("0"), None); // 0 is not in base58 alphabet
+        assert_eq!(base58_decode("O"), None); // O is not in base58 alphabet
+        assert_eq!(base58_decode("I"), None); // I is not in base58 alphabet
+        assert_eq!(base58_decode("l"), None); // l is not in base58 alphabet
     }
 }
