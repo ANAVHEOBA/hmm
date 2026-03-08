@@ -13,6 +13,12 @@ pub enum EvasionError {
     FileSystem(String),
     /// Timing check failed
     Timing(String),
+    /// API hashing/resolution failed
+    ApiResolution(String),
+    /// Packing/unpacking failed
+    Packing(String),
+    /// Fileless execution failed
+    FilelessExec(String),
     /// Internal error
     Internal(String),
 }
@@ -25,6 +31,9 @@ impl fmt::Display for EvasionError {
             EvasionError::ProcessEnumeration(msg) => write!(f, "Process enumeration error: {}", msg),
             EvasionError::FileSystem(msg) => write!(f, "File system error: {}", msg),
             EvasionError::Timing(msg) => write!(f, "Timing error: {}", msg),
+            EvasionError::ApiResolution(msg) => write!(f, "API resolution error: {}", msg),
+            EvasionError::Packing(msg) => write!(f, "Packing error: {}", msg),
+            EvasionError::FilelessExec(msg) => write!(f, "Fileless execution error: {}", msg),
             EvasionError::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
     }

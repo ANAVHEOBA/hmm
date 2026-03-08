@@ -50,17 +50,23 @@ export HMM_TRANSPORT_API_KEY="your-api-key"
      - [ ] Affiliate tracking system
 
     Evasion Enhancements
-     - [ ] String obfuscation/encryption
-     - [ ] Code packing
-     - [ ] Process injection (hollowing, reflective DLL)
-     - [ ] Fileless execution
-     - [ ] API hashing
+     - [x] String obfuscation/encryption (implemented in obfuscate.rs)
+     - [x] Code packing (implemented in packer.rs - PE packing with compression/encryption)
+     - [x] Process injection (hollowing, reflective DLL)
+         - [x] Process hollowing (inject.rs - full implementation with memory unmapping)
+         - [x] Reflective DLL injection (inject.rs - full implementation with import resolution)
+         - [x] DLL injection (standard LoadLibrary method)
+         - [ ] APC injection (stub only)
+         - [ ] Thread hijacking (stub only)
+         - [ ] Process ghosting (stub only)
+     - [x] Fileless execution (fileless.rs - VirtualAlloc shellcode execution)
+     - [x] API hashing (api_hash.rs - DJB2 hash-based API resolution)
 
     Persistence
-     - [ ] Registry Run keys
-     - [ ] Scheduled tasks
-     - [ ] Startup folder
-     - [ ] Service installation
+     - [x] Registry Run keys (registry.rs - HKCU/HKLM Run and RunOnce keys)
+     - [x] Scheduled tasks (scheduled_task.rs - schtasks on Windows, cron on Linux)
+     - [x] Startup folder (startup.rs - .lnk shortcut creation via COM)
+     - [x] Service installation (service.rs - Windows SCM, systemd on Linux)
 
     Cleanup
      - [ ] Self-destruction
